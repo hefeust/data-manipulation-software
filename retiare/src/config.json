@@ -1,0 +1,10 @@
+{
+  "build" : {
+    "order" : [
+      "utils", "block", "graph"
+    ],
+    "steps" : [
+      "declare", "properties", "method", "wrapper"
+    ]
+  }
+}
