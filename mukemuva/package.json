@@ -1,0 +1,45 @@
+{
+  "name": "mukemuva",
+  "version": "0.1.0",
+  "description": "useful data structures",
+  "main": "dist/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "karma start"
+  },
+  "keywords": [
+    "data",
+    "structures",
+    "multi-keys",
+    "hashmap"
+  ],
+  "author": "hefeust",
+  "license": "MIT",
+  "dependencies": {
+    "@rollup/plugin-alias": "^3.1.1",
+    "@rollup/plugin-buble": "^0.21.3",
+    "@rollup/plugin-commonjs": "^17.0.0",
+    "@rollup/plugin-node-resolve": "^11.0.1",
+    "assume": "^2.3.0",
+    "benchmark": "^2.1.4",
+    "expect": "^26.6.2",
+    "expect.js": "^0.3.1",
+    "karma-chai": "^0.1.0",
+    "karma-coverage": "^2.0.3",
+    "karma-mocha": "^2.0.1",
+    "karma-mocha-reporter": "^2.2.5",
+    "karma-rollup-plugin": "^0.2.4",
+    "karma-rollup-preprocessor": "^7.0.7",
+    "karma-rollup2-preprocessor": "^1.0.1",
+    "mocha": "^8.3.2",
+    "rollup": "^2.44.0"
+  },
+  "devDependencies": {
+    "karma": "^6.3.2",
+    "karma-chrome-launcher": "^3.1.0",
+    "karma-cli": "^2.0.0",
+    "karma-firefox-launcher": "^2.1.0"
+  }
+}
