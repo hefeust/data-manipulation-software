@@ -24,5 +24,9 @@ npm:
 
     const ms = create_multistore(roles_names, options)
 
+## 2021-06-10 debug
+
+    npm i
+    clear && rollup -c && node dist/debug.js
 
 
