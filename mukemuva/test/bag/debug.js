@@ -1,15 +1,16 @@
 
 import { create_multistore } from '../../dist/index.js'
 
-const DIMS = 2
+const DIMS = 20
 const roles_names = 'x,y,z'.split(',')
 const NMAX = Math.pow(DIMS, roles_names.length)
-const rand = (n) => 2 + Math.floor(n * Math.random())
+const rand = (n) => 1 + Math.floor(n * Math.random())
 
 const ms = create_multistore(roles_names, {
     pool: {
         size: NMAX
-    }
+    },
+    debug: true
 })
 
 //console.log(ms)
@@ -17,6 +18,7 @@ const ms = create_multistore(roles_names, {
 const pairs = []
 
 for(let i = 0; i < NMAX; i++) {
+
     pairs.push({
         bag:  {
 //             x: rand(NMAX),
@@ -34,14 +36,13 @@ for(let i = 0; i < NMAX; i++) {
     })
 }
 
-const idx = rand(NMAX) - 2
+const idx = rand(NMAX) - 1
 
-console.log(pairs)
-console.log(idx)
-
-const test  = pairs[idx]
+const test  = pairs[NMAX - 1]
+//const test  = pairs[0]
 
 console.log('multistore debug...')
+//console.log({ test: idx, NMAX})
 
 const show = async () => {
 
@@ -49,9 +50,12 @@ const show = async () => {
 
     for(let j = 0; j < pairs.length; j++) {
         const { bag, with_data} = pairs[j]
-
+        
+//        console.log('setting element j=' + j)
         const sets = await ms.set(bag, with_data)
     }
+
+    console.log({ STATS: ms.get_stats() })
 
     console.log('fetching results...')
     
@@ -65,12 +69,9 @@ const show = async () => {
         console.log({ selected })
     }
 
-//    (await ms.debug()).map(d => console.log(d.uid, d.data))
-//    console.log(ms.debug())               
-
     console.log('***** STATS *****')
+    console.log({ STATS: ms.get_stats() })
 
-    console.log(ms.get_stats())
     console.log(ms.debug())
 }
 

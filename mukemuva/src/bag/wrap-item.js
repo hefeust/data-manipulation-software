@@ -1,30 +1,34 @@
 
+import { DUCKTYPE_ITEM } from './ducktypes.js'
+
 export const wrap_item = (context) => {
-    const { ducks } = context
+
+    const set_data = async (def, payload) => {
+        const { uid, ducktype, block } = def
+
+//          console.log({ def })
+
+        block.data = payload
+        block.counter++
+    }
+
+    const get_data = async (def) => {
+        const { uid, ducktype, block } = def
+
+        return block.data
+    }
+
 
     const wrap = (def) => {
-        const { uid, ducktye, block } = def
-
-        const set_data = async (data) => {
-            block.data = data
-        }
-  
-        const get_data = async () => {
-            return block.data
-        }
-
-        const debug = () => {
-            return `${uid}\t item \t [${block.counter}] ${ block.data.with_data}`
-        }
-
+        const { uid, ducktype, block } = def
 
         return {
-            uid, 
-            set_data, 
-            get_data, 
-            debug
+            uid, ducktype,
+            set_data: (payload) => set_data(def, payload), 
+            get_data: () => get_data(def)
         }
     }
 
     return { wrap }
 }
+

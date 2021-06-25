@@ -1,7 +1,7 @@
 
-export const create_naive_store = (roles_names) => {
+export const create_naivestore = (roles_names) => {
 
-    const pairs = []
+    const entries = []
 
     const set = async (bag, with_data) => {
 

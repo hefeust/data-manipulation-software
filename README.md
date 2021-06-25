@@ -1,5 +1,5 @@
 
-# README for "data-manipluation-softare"
+# README for "data-manipluation-software"
 
 ## TOC
 ### DEXM: Deux EX Machina finite state machine

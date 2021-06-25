@@ -1,123 +1,103 @@
 
+import * as ducktypes from './ducktypes.js'
+
 export const wrap_role = (context) => {
 
-    const { ducks } = context
+    const { pool, debug, ducks } = context
 
-    const wrap = (def) => {
-        const { uid, ducktype, block }  =def
+    const set_part = async (def, part_value) => {
+        const { uid, ducktype, block } = def
         const { lookup } = block.data
 
-        const install_part = async (part_value) => {
-            let uid, part
+        let part_uid, part
+        
+        if (lookup.has(part_value)) {
+            part = await ducks.hydrate({
+                uid: lookup.get(part_value), 
+                ducktype: ducktypes.DUCKTYPE_PART
+            })
+        } else {
+            part = await ducks.create({
+                data: { part_value },
+                ducktype: ducktypes.DUCKTYPE_PART
+            })
 
-            if(lookup.has(part_value)) {
-                uid = lookup.get(part_value)
-                part = await ducks.hydrate({
-                    ducktype: 'part',
-                    uid
-                })
-            } else {
-                part = await ducks.create({
-                    ducktype: 'part',
-                    data:  { part_value }
-                })
-
-                lookup.set(part_value, part.uid)
-                block.related.push(part.uid)
-            }
-
-            return part
+            lookup.set(part_value, part.uid)
+            block.related.push(part.uid)
         }
 
-        const get_part = async (uid) => {
-            const idx = block.related.indexOf(uid)
-            
-            if(idx > -1) 
-                return await ducks.hydrate({ 
-                    ducktype: 'part', 
-                    uid: block.related[idx]
-                })
+        return part
+    }
 
-            return null
+    const get_part = async (def, part_uid) => {
+        const { uid, ducktype, block } = def
+        const part_idx = block.related.indexOf(part_uid)
+        let part = null
+
+        if(part_idx > -1) {
+            part = await ducks.hydrate({
+                uid: block.related[part_idx],
+                ducktype: ducktypes.DUCKTYPE_PART
+            })
         }
 
-        const test_part = (expected) => {
-            if(expected === '*') return true
-            if(typeof expected === 'function') 
-                return expected(part.get_part_value())
-                
-            return expected === part.get_part_value()
-        }
+        return part
+    }
 
-        const select_parts = async (filter) => {
-            const results = []
 
-//            console.log(Array.from(lookup.keys()))
+    const test_value = (part, expected) => {
+       if(expected === '*') return true
+       if(typeof expected === 'function') 
+           return expected(part.part_value)
+           
+       return expected === part.part_value
+    }
 
-            if (lookup.has(filter)) {
-                const uid =  lookup.get(filter)
+    const select_parts = async (def, filter) => {
+        const { uid, ducktype, block } = def        
+        const { lookup } = block.data
+        const results = []
 
+//        console.log({ SELECT_PARTS: lookup })
+
+        if (lookup.has(filter)) {
+//            console.log('ROLE LOKKUP MATCH !')
+
+            const part_uid =  lookup.get(filter)
+
+            const part = await ducks.hydrate({
+                ducktype: ducktypes.DUCKTYPE_PART,
+                uid: part_uid
+            })
+
+            results.push(part)
+        } else {
+            for (let part_uid of block.related) {
                 const part = await ducks.hydrate({
-                    ducktype: 'part',
-                    uid
+                    ducktype: ducktypes.DUCKTYPE_PART,
+                    uid: part_uid
                 })
-
-                results.push(part)
-            } else {
-                for (let uid of block.related) {
-                    const part = await ducks.hydrate({
-                        ducktype: 'part',
-                        uid
-                    })
 //                    console.log({ part: part.get_part_value() })
 
-                    if (part.test_value(filter)) {
-                        results.push(part)
-                    }
+                if (test_value(filter)) {
+                    results.push(part)
                 }
             }
+       }
 
 //            console.log({ results: results.length })
 
-            return  results 
-        }
+       return  results 
+    }
 
-        const select_parts0 = async (filter) => {
-            const selected = block.related.map(async (uid) => {
-                const part = await ducks.hydrate({
-                    ducktype: 'part',
-                    uid
-                })
-                
-                return part
-            }).reduce(async (acc, promise) => {
-                const values = await acc
-                const part = await promise
+    const wrap = (def) => {
+        const { uid, ducktype, block } = def
 
-                if (part.test_value(filter)) {
-                    values.push(part)
-                }
-
-                return values
-            }, Promise.resolve([]))
-
-//            return await Promise.all(promises)
-            return await selected
-        }
-
-        const debug = () => {
-            return `${uid}\t role \t [${block.counter}] ${ block.data.role_name}`
-        }
-
-        const get_role_name = () => block.data.role_name
-
-        return {
-            uid, 
-            get_role_name,
-            install_part, 
-            get_part, 
-            select_parts, 
-            debug
+        return { 
+            uid, ducktype, role_name: block.data.role_name,
+            set_part: (part_value) => set_part(def, part_value),
+            get_part: (part_uid) => get_part (def, part_uid),
+            select_parts: (filter) => select_parts(def, filter)
         }
     }
 

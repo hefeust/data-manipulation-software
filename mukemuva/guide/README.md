@@ -11,5 +11,5 @@
 
 # images
 
-![Test perf multimap](test-perf-multimap.png)
+![Test perf multimap](perfs/test-perf-multimap.png)
 

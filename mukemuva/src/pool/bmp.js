@@ -55,6 +55,8 @@ export const create_bmp = (options = {}) => {
     const get_data = async (uid) => {
         const block = await get_block(uid)
 
+        // console.log({ uid, block })
+
         return block.data
     }
 
