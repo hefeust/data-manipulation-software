@@ -12,7 +12,7 @@ const defaults = {
         keysize: 5
     },
     pool: {
-        size: 100 * 1000,
+        size: 10 * 1000,
         thresold: 0.05,
         growth: 0.10
     }

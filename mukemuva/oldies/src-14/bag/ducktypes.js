@@ -19,20 +19,13 @@ const get_fullname = (ducktype) => {
 }
 
 export const trace = (block) => {
-    const { uid, ducktype, related, counter, fellow } = block
+    const { uid, ducktype, refs } = block
+
+//    console.log({ uid, ducktype, refs})
+
+    const { fellow, related, counter  } = refs
+
     const fullname = get_fullname(ducktype)
-    let payload = '#user-data!'
 
-    if(ducktype === ROLE) payload = block.payload.role_name
-    if(ducktype === PART) payload = block.payload.part_value
-
-    return `[${uid}] ${fullname}  (${fellow}) ${counter}, ${ related.length} payload=${payload}`
+    return `${uid} ${fullname} ${fellow} ${counter}`
 }
-
-
-
-
-
-
-
-

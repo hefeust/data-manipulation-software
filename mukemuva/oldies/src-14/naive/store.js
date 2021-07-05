@@ -30,7 +30,8 @@ export const create_naive_store = (roles_names, options = {}) => {
             entries[idx].with_data = with_data
         }
 
-//        console.log(stats.sets)
+        console.log(stats.sets
+)
 
         stats.sets++
     }

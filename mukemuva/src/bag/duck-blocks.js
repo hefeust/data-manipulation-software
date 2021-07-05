@@ -1,83 +1,46 @@
 
-import * as ducktypes from './ducktypes.js'
-import { wrap_role } from './wrap-role.js'
-import { wrap_part } from './wrap-part.js'
-import { wrap_item } from './wrap-item.js'
-
 export const duck_blocks = (context) => {
 
-    const { pool, debug } = context
+    const { pool } =  context.tooling
 
     const create = async (def) => {
-        const { ducktype, data } = def
+        const { ducktype, fellow, payload } = def
 
-//        console.log({ CREATE: ducktype })
 
-        const block = { 
-            data, 
+      const block = {
+            ducktype,
+            payload,
+            fellow,
             related: [],
             counter: 0
         }
 
         const uid = await pool.set_data(block)
+       
+        block.uid = uid
 
-        if(debug) {
-            block.debug = {
-                uid,
-                ducktype
-            }
-        }
-
-        return wrap({ uid, ducktype, block })
+        return block        
     }
 
     const hydrate = async (query) => {
-        const { ducktype, uid } = query
+        const { uid, ducktype, fellow } = query
 
-//        console.log({ HYDRATE: ducktype, uid })
+//        console.log({ uid })
 
-        const block =  await pool.get_data(uid)       
+        const block = await pool.get_data(uid)
 
-        if(debug) {
-            if (block.debug.uid !== uid)  {
-                throw new Error ('duck_blocks.hydrate ERROR  UID INCONSISTENCY: ' 
-                    + uid + ' !== ' + block.debug.uid)
-            }
+        if(!block) 
+            throw new Error('duck_blocks.hydrate: block not found @uid = ' + uid)
 
-            if (block.debug.ducktype !== ducktype) {
-                console.log(block)
+        if(block.ducktype !== ducktype)
+           throw new Error('duck_blocks.hydrate: ducktype inconsistency !!!')
 
-                throw new Error ('duck_blocks.hydrate ERROR DUCKTYPE INCONSISTENCY: ' 
-                    + ducktype + ' !== ' + block.debug.ducktype)
-            }
-        }
 
-        return wrap({ uid, ducktype, block })
+        return block
     }
-
-    const wrap = (def) => {
-        const { uid, ducktype, block } = def
-
-        const wrappers = {
-            role: wrap_role(context),
-            part: wrap_part(context),
-            item: wrap_item(context)
-        }
-
-        const wrapper = wrappers[ducktypes.toString(ducktype)]
-//        const wrapper = wrappers[ducktype]
-
-//        console.log({ ducktype })
-
-        if(! wrapper)
-            throw new Error ('ducks_blocks.wrap: WRAPPER NOT FOUND ! ducktype='  + ducktype)
-
-        return wrapper.wrap(def)
-    }
-
-    const trace = () => {}
 
     return {
-        create, hydrate, trace
+        create,
+        hydrate
     }
 }

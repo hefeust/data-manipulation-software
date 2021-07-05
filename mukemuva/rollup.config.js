@@ -28,7 +28,8 @@ export default [{
         format: 'umd'
     },
     plugins
-}, {
+}, 
+{
     input: 'test/bag/debug.js',
     output: {
         name: 'mukemuva_debug', 
@@ -36,5 +37,16 @@ export default [{
         format: 'umd'
     },
     plugins
-}]
+},
+{
+    input: 'test/naive/debug.js',
+    output: {
+        name: 'mukemuva_debug', 
+        file: 'dist/naive.js',
+        format: 'umd'
+    },
+    plugins
+}
+
+]
 

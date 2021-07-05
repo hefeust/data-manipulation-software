@@ -18,8 +18,6 @@ export const create_multistore = (roles_names, options = {}) => {
         const inst_roles = await tooling.lookup.install_roles(roles_names)
         const inst_parts = await tooling.lookup.install_parts(bag)
         const inst_items = await tooling.lookup.install_item(bag, with_data)
-
-        return inst_items
     }
 
     const get = async (bag) => {
@@ -27,11 +25,7 @@ export const create_multistore = (roles_names, options = {}) => {
     }
 
     const select = async function* (filters) {
-        const pairs = await tooling.lookup.select_items(filters)                
-
-        for await (const pair of pairs) {
-            yield pair
-        }
+        
     }
 
     const remove= async (bag) => {
