@@ -1,6 +1,8 @@
 
 # README
 
+![logo](./guide/schemas/logo.svg)
+
 ## Mukemuva... WTF ?
 
 Mulemuva stands for "MUlti-KEys, MUltiple VAlues":  this is just a simple in-memory (in vivo) database  system system with basic filtering abilities.
