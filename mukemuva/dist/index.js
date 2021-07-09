@@ -123,7 +123,7 @@
             keysize: 5
         },
         pool: {
-            size: 10 * 1000,
+            size: 100 * 1000,
             thresold: 0.05,
             growth: 0.10
         }
@@ -167,6 +167,8 @@
 
         var get_data = async function (uid) {
             var block = await get_block(uid);
+
+            // console.log({ uid, block })
 
             return block.data
         };
@@ -320,595 +322,552 @@
         return bmp_api
     };
 
-    var create_roles_lookup = function (context) {
-        context.pool;
-        var ducks = context.ducks;
+    var ROLE = 'R';
 
+    var PART = 'P';
+
+    var ITEM = 'I';
+
+    var duck_blocks = function (context) {
+
+        var ref =  context.tooling;
+        var pool = ref.pool;
+
+        var create = async function (def) {
+            var ducktype = def.ducktype;
+            var fellow = def.fellow;
+            var payload = def.payload;
+
+
+          var block = {
+                ducktype: ducktype,
+                payload: payload,
+                fellow: fellow,
+                related: [],
+                lookup: new Map(),
+                counter: 0
+            };
+
+            var uid = await pool.set_data(block);
+           
+            block.uid = uid;
+
+            return block        
+        };
+
+        var hydrate = async function (query) {
+            var uid = query.uid;
+            var ducktype = query.ducktype;
+            query.fellow;
+
+            var block = await pool.get_data(uid);
+
+            if(!block) 
+                { throw new Error('duck_blocks.hydrate: block not found @uid = ' + uid) }
+
+            if(block.ducktype !== ducktype)
+               { throw new Error('duck_blocks.hydrate: ducktype inconsistency !!!') }
+
+
+            return block
+        };
+
+        return {
+            create: create,
+            hydrate: hydrate
+        }
+    };
+
+    var lists_intersect = function (lists) {
+        var results = [];
         var lookup = new Map();
 
-        var install_roles = async function (roles_names) {
-            var promises = roles_names.map(async function (role_name) {
-                var uid, role;
+    //    console.log('lists.map', lists )
 
-                if(lookup.has(role_name)) {
-                    uid = lookup.get(role_name);
-                } else {
-                    role = await ducks.create({
-                        ducktype: 'role',
-                        data: { role_name: role_name, lookup: new Map() }
+    //    lists.sort((l1, l2) => l2.length - l1.length).map((list) => {
+        lists.map(function (list, idx) {
+            list.map(function (element) {
+                var count = lookup.get(element) || 0;
+
+    //         if(count === idx) {
+               lookup.set(element, 1 + count);
+    //         } else {
+    //             lookup.delete(element)
+    //         }
+            });
+        });
+
+        Array.from(lookup.keys()).map(function (key) {
+            if(lookup.get(key) === lists.length) {
+               results.push(key);
+            }
+        });
+            
+        return results
+    };
+
+    var f = function (a, b) {
+        var ref;
+
+        return (ref = []).concat.apply(ref, a.map(function (d) { return b.map(function (e) { return [].concat(d, e); }); }));
+    };
+
+    var cartesian = function (a, b) {
+        var c = [], len = arguments.length - 2;
+        while ( len-- > 0 ) c[ len ] = arguments[ len + 2 ];
+
+        return (b ? cartesian.apply(void 0, [ f(a, b) ].concat( c )) : a);
+    };
+
+    var cartesian_product = cartesian;
+
+    var duck_lookup = function (context) {
+        
+        // grab ducks tooling from context
+        var ref = context.tooling;
+        var ducks = ref.ducks;
+
+        // role blocks lookup
+        var roles  = new Map();
+
+        // install role blocks in pool
+        var install_roles = async function (roles_names) {
+
+            var promises = roles_names.map(async function (role_name) {
+                if(false === roles.has(role_name)) {
+                    var block = await ducks.create({
+                        ducktype: ROLE,
+                        fellow: null,
+                        payload: { role_name: role_name }                    
                     });
 
-                    uid = role.uid;
-                    lookup.set(role_name, uid);
+                    roles.set(role_name, block);
                 }
-
-                return uid
             });
 
             return await Promise.all(promises)
         };
 
-        var get_role = async function (role_name) {
-            if (lookup.has(role_name)) {
-                var uid = lookup.get(role_name);
+        // get role block by its name from lookup
+        var get_role = function (role_name) {
+            var role = roles.get(role_name);
 
-    //            console.log({ HYDRATE: uid })
+            if(!role) 
+                { throw new Error('lookup.get_role: HO for role_name= ' + role_name) }
 
-                return await ducks.hydrate({ 
-                    ducktype: 'role',
-                    uid: uid 
-                })
-            } 
-
-            throw new Error('role not found for role_name = ' +  role_name)
+            return role
         };
 
-        return { install_roles: install_roles, get_role: get_role }
-    };
+        // install parts blocks in pool (by part value)
+        var install_parts = async function (bag) {
+            var roles_names = Array.from(roles.keys());
 
-    var wrap_role = function (context) {
+            var promises = roles_names.map(async function (role_name) {
+                var role = get_role(role_name);
+                var part_value = bag[role_name];
+                var entries = role.lookup.get(role_name) || [];
+                var found = false;
 
-        var ducks = context.ducks;
+                if(false === (role_name in bag)) 
+                    { throw new Error('lookup.install_parts: user bag KO for role_name= ' + role_name) }
 
-        var wrap = function (def) {
-            var uid = def.uid;
-            def.ducktype;
-            var block = def.block;
-            var ref = block.data;
-            var lookup = ref.lookup;
-
-            var install_part = async function (part_value) {
-                var uid, part;
-
-                if(lookup.has(part_value)) {
-                    uid = lookup.get(part_value);
-                    part = await ducks.hydrate({
-                        ducktype: 'part',
-                        uid: uid
-                    });
-                } else {
-                    part = await ducks.create({
-                        ducktype: 'part',
-                        data:  { part_value: part_value }
-                    });
-
-                    lookup.set(part_value, part.uid);
-                    block.related.push(part.uid);
-                }
-
-                return part
-            };
-
-            var get_part = async function (uid) {
-                var idx = block.related.indexOf(uid);
-                
-                if(idx > -1) 
-                    { return await ducks.hydrate({ 
-                        ducktype: 'part', 
-                        uid: block.related[idx]
-                    }) }
-
-                return null
-            };
-
-            var select_parts = async function (filter) {
-                var results = [];
-
-    //            console.log(Array.from(lookup.keys()))
-
-                if (lookup.has(filter)) {
-                    var uid =  lookup.get(filter);
-
-                    var part = await ducks.hydrate({
-                        ducktype: 'part',
-                        uid: uid
-                    });
-
-                    results.push(part);
-                } else {
-                    for (var uid$1 of block.related) {
-                        var part$1 = await ducks.hydrate({
-                            ducktype: 'part',
-                            uid: uid$1
-                        });
-    //                    console.log({ part: part.get_part_value() })
-
-                        if (part$1.test_value(filter)) {
-                            results.push(part$1);
-                        }
+                for(var part of entries) {
+                    if(part.fellow === role.uid) {
+                        // console.log({ found})
+                        found = true;
                     }
                 }
 
-    //            console.log({ results: results.length })
+                if (!found) {
+                    var part$1 = await ducks.create({
+                        ducktype: PART,
+                        fellow: role.uid,
+                        payload: { part_value: part_value } 
 
-                return  results 
-            };
-
-            var debug = function () {
-                return (uid + "\t role \t [" + (block.counter) + "] " + (block.data.role_name))
-            };
-
-            var get_role_name = function () { return block.data.role_name; };
-
-            return {
-                uid: uid, 
-                get_role_name: get_role_name,
-                install_part: install_part, 
-                get_part: get_part, 
-                select_parts: select_parts, 
-                debug: debug
-            }
-        };
-
-        return { wrap: wrap }
-    };
-
-    var wrap_part = function (context) {
-
-        var ducks = context.ducks;
-
-        var wrap = function (def) {
-            var uid = def.uid;
-            def.ducktype;
-            var block = def.block;
-
-            var setup_item = async function (with_data ) {
-    //            console.log('    SETUP ITEM')
-
-                var item = await ducks.create({
-                    ducktype: 'item',
-                    data:  with_data 
-                });
-
-                block.related.push(item.uid);
-                block.counter++;
-        
-                return item
-            };
-
-             var refer_item  = function (uid) {
-    //            console.log('    REFER ITEM')
-                block.related.push(uid);
-                block.counter++;
-            };
-
-            var test_value = function (expected) {
-    //            console.log(block)
-
-                if(expected === '*') { return true }
-                if(typeof expected === 'function') {
-                    return expected(block.data.part_value)
-                }
-                    
-                return expected === block.data.part_value
-            };
-        
-            var select_items = async function* () {
-
-    //            console.log(block)
-
-                for(uid of block.related) {
-                    var item = await ducks.hydrate({
-                        ducktype: 'item',
-                        uid: uid
                     });
 
-                    yield item;
+                    role.related.push(part$1.uid);
+                    role.counter++;
+                    entries.push(part$1);    
+
+                    role.lookup.set(part_value, part$1.uid);
                 }
+                
+    //            parts.set(part_value, entries)
+
+                return part_value
+            });
+
+            return await Promise.all(promises)
+        };
+
+        var collect_records = async function* (filters) {
+            var roles_names = Array.from(roles.keys());
+            var marked = new Map();
+    //        const collected = new Map()       
+
+    //            console.log('**** collect_records ****')
+
+            var loop = function () {
+                    var role = get_role(role_name);
+                    var filter = filters[filter];
+                    var by_role = marked.get(role_name) || [];
+                    var pvs = Array.from(role.lookup.keys());
+                    var filtered = [];
+                    
+                    if (role.lookup.has(filter)) {
+                        filtered = [role.lookup.get(filter)];
+                    } else if (typeof filter === 'function') {
+                        filtered = pvs.filter(function (pv) { return filter(pv); });
+                    } else if (filter === '*') {        
+                        filtered = pvs;
+                    }
+                    
+                    console.log({ filtered: filtered });
+
+                    for (var part_value of filtered) {
+                        by_role.push(part_value);
+                    }
+
+                    marked.set(role_name, by_role);
             };
 
-            var debug = function () {
-                return (uid + "\t part \t [" + (block.counter) + "] " + (block.data.part_value))
-            };
+            for( var role_name of roles_names) loop();
 
-            var get_part_value = function () { return block.data.part_value; };
+            var arrays = roles_names.map(function (role_name) {
+                var entries = marked.get(role_name);
 
-            return {
-                uid: uid, 
-                get_part_value: get_part_value,
-                setup_item: setup_item,
-                refer_item: refer_item,
-                test_value: test_value,
-                select_items: select_items,
-                debug: debug
+                return entries
+            }).reduce(function (acc, val) { return acc.concat([val]); }, []);
+
+            console.log('marked', marked);
+            console.log('arrays', arrays);
+
+            var cart_prod = cartesian_product.apply(void 0, arrays);
+
+            console.log('CARTESIAN PRODUCT', cart_prod);
+
+            for(var cp of cart_prod) {
+                var results = [];
+
+                for(var uid of cp) {
+                    var part = ducks.hydrate({
+                        uid: uid,
+                        ducktype: PART
+                    });
+
+                    results.pusg(part);
+                }
+
+                yield result;
             }
         };
 
-        return { wrap: wrap }
-    };
+        var install_item = async function (bag, with_data) {
+            var records = await collect_records(bag);
+            var record_idx = 0;
 
-    var wrap_item = function (context) {
-        context.ducks;
+            for await (var record of records) {
+                record_idx++;
 
-        var wrap = function (def) {
-            var uid = def.uid;
-            def.ducktye;
-            var block = def.block;
+                var lists = [];
 
-            var set_data = async function (data) {
-                block.data = data;
-            };
-      
-            var get_data = async function () {
-                return block.data
-            };
+                for(var part of record) {
+                    lists.push(part.related);
+                }
 
-            var debug = function () {
-                return (uid + "\t item \t [" + (block.counter) + "] " + (block.data.with_data))
-            };
+                var isect = lists_intersect(lists);
 
 
-            return {
-                uid: uid, 
-                set_data: set_data, 
-                get_data: get_data, 
-                debug: debug
+                for (var uid of isect) {
+                    var item = await ducks.hydrate({ 
+                        uid: uid,
+                        ducktype: ITEM,
+                        fellow: null
+                    });
+
+                    item.payload.with_data = with_data;
+                }
+
+                console.log({ INSTALL_isect: isect.length });
+                console.log({ isect: isect });
+
+                if(isect.length === 0) {
+                    var index = 0;
+                    var item$1 = null;
+
+                    for (var part$1 of record ) {
+                        if (index === 0) {
+                            // add new item to parts
+                            //  console.log('create-item')
+                            item$1 = await ducks.create({
+                                ducktype: ITEM,
+                                fellow: null,
+                                payload: { with_data: with_data }
+                            });
+                        }
+
+                        part$1.related.push(item$1.uid);
+                        part$1.counter++;
+                        index++;
+                    }
+
+
+    //                console.log(record.map(part => ducktypes.trace(part)))
+                }
             }
+
+            //console.log({ record_idx })
+    //            console.log({ record_idx })
+
+            return record_idx
         };
 
-        return { wrap: wrap }
-    };
+        var select_items = async function* (filters) {
+            var records = await collect_records(filters);
 
-    var duck_blocks = function (context) {
+            for await (var record of records) {
 
-        var pool = context.pool;
-        context.ducks;
+                console.log({ select_items: record.length});
 
-            var funcs = {
-                role: wrap_role(context),
-                part: wrap_part(context),
-                item: wrap_item(context)
-            };
+                var lists = [];
+                var bag = {};
+                var with_data = '#KO!';
 
-        var create = async function (def)  {
-            var ducktype = def.ducktype;
-            var data = def.data;
-            
-            var block = {
-                data: data,
-                related: [],
-                counter: 0
-            };
+                for (var part of record) {
+                    var role = await ducks.hydrate({
+                        uid: part.fellow,
+                        ducktype: ROLE
+                    });
 
-            var uid = await pool.set_data(block);
+    //                    console.log({ related: part.related.length})                    
 
-            return wrap({ uid: uid, ducktype: ducktype, block: block})
-        };
+                    bag[role.payload.role_name] = part.payload.part_value;
+                    lists.push(part.related);
 
-        var hydrate = async function (query)  {
-            var ducktype = query.ducktype;
-            var uid = query.uid;
+    //                console.log(part.related.length) 
+               }
 
-    //        console.log({ HYDRATE: query })
+                console.log({ lists: lists });                    
 
-            var block = await pool.get_data(uid);
-
-            return wrap({ uid: uid, ducktype: ducktype, block: block})        
-        };
-
-        var wrap = function (def)  {
-            var ducktype = def.ducktype;
+                var isect = lists_intersect(lists);
 
 
+                console.log({ SELECT_ITEMS: isect.length });
 
-    //        console.log(funcs[ducktype])
+                for (var uid of isect) {
+                    var item = await ducks.hydrate({ 
+                        uid: uid,
+                        ducktype: ITEM
+                    });
 
-            var wrapped = funcs[ducktype].wrap(def);
+    //                console.log('select_item', item)
 
-            return wrapped
-        };
+                    with_data = item.payload.with_data;
+                }
 
-        var debug = function (def) {
+                console.log({ bag: bag });
 
+                yield { bag: bag, with_data: with_data }; 
+            }
         };
 
         return {
-            create: create,
-            hydrate: hydrate,
-            debug: debug
-        }
-    };
+            install_roles: install_roles,
+            install_parts: install_parts,
+            install_item: install_item,
+            select_items: select_items
+        }    
 
-    var uids_selector = function (roles_names) {
-        var lookup = new Map();
-
-        var collect = function (record) {
-            var item_uid = record.item_uid;
-            var collected = lookup.get(item_uid) || [];
-            var found = false;
-
-    //        console.log('     collect', { collected })
-            // *********
-            for(var entry of collected) {
-                if (entry.role_uid !== record.role_uid) { continue }
-                if (entry.part_uid !== record.part_uid) { continue }
-                if (entry.item_uid !== record.item_uid) { continue }
-
-                found = true;
-    //            collected.push(record)
-            }
-     
-            if(found === false) { collected.push(record); }
-            
-
-            // *********
-
-    //        collected.push(record)
-            lookup.set(item_uid, collected);
-        };
-
-        var get_collected = function* () {
-    //        console.log(lookup)
-
-            var items_uids = Array.from(lookup.keys());
-            var acc = new Map();
-
-            for (var item_uid of items_uids) {
-                var records = lookup.get(item_uid);
-
-
-    //            console.log(records)
-
-                for (var record of records) {
-                    var collect_idx = record.collect_idx;
-                    var extracted = acc.get(collect_idx) || [];
-                    
-                    extracted.push(record);               
-                    acc.set(collect_idx, extracted);
-
-                    if (extracted.length === roles_names.length) {
-                        // console.log(extracted.length)
-                        yield extracted;
-                    }
-                }
-            }
-        };
-
-        var debug = function () {
-            return lookup        
-        };
-
-        return { collect: collect, get_collected: get_collected, debug: debug }
     };
 
     var defaults = {
+        debug: true,
         pool: {
-            size: 1000
+            size: 100000
         }
     };
 
     var create_multistore = function (roles_names, options) {
-
-        var selector = uids_selector(roles_names);
-        var collect_idx = 0;
+        if ( options === void 0 ) options = {};
 
 
-        var set = async function (pairs_bag, with_data) {
-            await roles_lookup.install_roles(roles_names);
-            var inst_parts = await install_parts(pairs_bag);
-            var collected_records = await collect_uids(pairs_bag);
-
-            var counter = 0;
-
-    //        collect_idx++
-
-            for await (var record of collected_records) {
-    //            console.log({ RECORD: record }) 
-                if (record.length === roles_names.length) {
-                    var item_uid = record[0].item_uid;
-
-                    var item = await ducks.hydrate({
-                        ducktype: 'item', uid: item_uid
-                    });
-
-    //                console.log({ item })
-
-                    var promise = item.set_data(with_data); 
-
-                    return await promise
-                }
-
-                counter++;
-            }
-
-            if(counter === 0) {
-    //            console.log('NEW_ITEM')
-    //            console.log({ SET_INST_PARTS: inst_parts.length})
-                var item$1;
-                var index = 0; 
-
-                for (var part of inst_parts) {
-    //                console.log('PART', { part })
-
-                    if (index === 0) {
-                        item$1 = await part.setup_item( with_data); 
-                    } else {
-                        part.refer_item(item$1.uid);
-                    }
-
-    //                console.log(item)
-
-                    index++;
-                }
-            }
+        var set = async function (bag, with_data) {
+            await tooling.lookup.install_roles(roles_names);
+            await tooling.lookup.install_parts(bag);
+            var inst_items = await tooling.lookup.install_item(bag, with_data);
 
             stats.sets++;
 
-    //        console.log({ SET_COUNTER: stats.sets }, '\n')
-
+            return inst_items
         };
 
-        var install_parts = async function (pairs_bag) {
-    //        let counter = 0
-
-            var installed = roles_names.reduce(async function (acc, role_name) {
-                var role = await roles_lookup.get_role(role_name);
-                var values = await acc;
-                var part;
-
-                if (role_name in pairs_bag) {
-                    await role.select_parts(pairs_bag[role_name]);                
-                    
-                    part = await role.install_part(pairs_bag[role_name]);
-
-                    values.push(part);
-                } else {
-                    throw new Error('Undefined role in bag: ' + role_name)    
-                }
-                
-                return values
-            }, Promise.resolve([]));
-
-    //        console.log({ INSTALLED: await installed })
-
-            if ((await installed).length !== roles_names.length) {
-                throw new Error ('bad roles pairs count !')
-            }
-
-    //        return await Promise.all(installed)
-            return await installed
-        };
-
-        var collect_uids = async function (filters) {
-
-            collect_idx++;
-
-            for (var key of roles_names) {
-                var role = await roles_lookup.get_role(key);
-                var parts = await role.select_parts(filters[key]);
-
-                for (var part of parts) {
-                    var items = await part.select_items();
-
-                    for await (var item of items) {
-                        selector.collect({
-                            collect_idx: collect_idx,
-                            role_uid: role.uid, 
-                            part_uid: part.uid, 
-                            item_uid: item.uid
-                        });
-                    }
-                }
-            }     
-            
-    //        console.log('COLLECT', { counter })
-
-            return selector.get_collected()
-        };
-
-        var get = async function (pairs_bag) {
-
+        var get = async function (bag) {
             stats.gets++;
-            console.log('GET', { pairs_bag: pairs_bag });            
         };
 
-        var select = async function* (filters_bag) {
-            var collected_records = await collect_uids(filters_bag);
+        var select = async function* (filters) {
+            var pairs = await tooling.lookup.select_items(filters);                
 
-    //        collect_idx++
-
-            for await (var record of collected_records) {
-                var bag = {};
-                var data = (void 0); 
-
-    //            if (record.length !== roles_names.length)
-
-                for (var entry of record) {
-                    var role_uid = entry.role_uid;
-                    var part_uid = entry.part_uid;
-                    var item_uid = entry.item_uid;
-                    var role = await ducks.hydrate({ ducktype: 'role', uid: role_uid });
-                    var part = await ducks.hydrate({ ducktype: 'part', uid: part_uid });
-                    var item = await ducks.hydrate({ ducktype: 'item', uid: item_uid });
-
-                 // console.log(role.get_role_name(), part.get_part_value())
-
-                    bag[role.get_role_name()] = part.get_part_value();
-                    data = await item.get_data();
-                }
-
-                yield { pairs_bag: bag, with_data: data };
+            for  await (var pair of pairs) {
+                yield pair;
             }
 
             stats.selects++;
         };
 
-        var debug = function () {
+        var remove= async function (bag) {
 
-            var values = pool.debug().map(function (d) {
-                if (!d) {
-                    return { uid: d.uid, data: '#EMPTY!' }
-                } else {
-
-                    return { uid: d.uid, data: d.data ? d.data.data : '#NULL!' }
-                }
-            });
-
-            return values
         };
 
-
         var toString = function () {
+
+        };
+
+        var debug = function () {
+
+        };
+
+        var trace = async function (filters) {
 
         };
 
         var get_stats = function () {
             return {
                 multistore: stats,
-                pool: pool.get_stats()
+                pool: tooling.pool.get_stats()
             }
         };
 
-        var setup = function () {
-            merge(conf, defaults, options);
 
-            merge(stats, {
-                sets: 0,
-                gets: 0,
-                selects: 0,
-                relases: 0
-            });
-
-            merge(context.pool, create_bmp(conf));
-            merge(context.ducks, duck_blocks(context));
-            merge(context.roles_lookup, create_roles_lookup(context));  
-
-            // console.log(context)
-        };
-        var pool = {};
-        var ducks = {};
-        var roles_lookup = {};
-        var context = { pool: pool, ducks: ducks, roles_lookup: roles_lookup };
         var conf = {};
-        var stats = {};
 
+        var stats = {
+            sets: 0,
+            gets: 0,
+            removes: 0,
+            selects: 0
+        };
+
+        var tooling = {
+            keygen: {},
+            pool: {},
+            ducks: {},
+            lookup: {}
+        };
+
+        var context = {
+            conf: conf,
+            tooling: tooling,
+            stats: stats
+        };
+
+        var setup = function () {
+            merge(context.conf, defaults, options);
+            merge(tooling.pool, create_bmp(conf));
+            merge(tooling.ducks, duck_blocks(context));
+            merge(tooling.lookup, duck_lookup(context));
+    //        console.log('context.conf', context.conf)
+    //        console.log('context.tooling', context.tooling)
+        };
+        
         setup();
 
         return {
-            set: set,
-            get: get,
-            select: select,
-            toString: toString,
+            set: set, 
+            get: get, 
+            select: select, 
+            toString: toString, 
+            debug: debug, 
+            get_stats: get_stats,
+            remove: remove,
+            trace: trace
+        }
+    };
+
+    var create_naive_store = function (roles_names, options) {
+
+
+        var entries = [];
+
+        var set = async function (bag, with_data) {
+            var keys = Object.keys(bag);
+            var idx = -1;
+
+            for(var entry of entries) {
+                var bag$1 = entry.bag;
+                var matches = [];
+
+                for(var key of keys) {
+                    var value = bag$1[key];
+
+                    if(bag$1[key] === value)
+                        { matches.push(key); }              
+                }
+
+
+                if(matches.length === roles_names.length) { break }
+
+                idx++;
+            }
+
+            if(idx === -1) {
+                entries.push({ bag: bag, with_data: with_data });
+            } else {
+                entries[idx].with_data = with_data;
+            }
+
+    //        console.log(stats.sets)
+
+            stats.sets++;
+        };
+
+        var get = async function (bag, with_data) {
+
+        };
+
+        var select = async function* (filters) {
+            var keys = Object.keys(filters);
+
+            for(var entry of entries) {
+                var bag = entry.bag;
+                var matches = [];
+
+                for(var key of keys) {
+                    var filter = filters[key];
+
+                    if(bag[key] === filter)
+                        { matches.push(key); }              
+                }
+
+                if(matches.length === roles_names.length) { yield entry; }
+            }
+
+
+            stats.selects++;
+        };
+
+        var toString = function () {
+
+        };
+
+        var debug = function () {
+            return { DEBUG_ENTRIES_LENGTH:  entries.length }
+        };
+
+        var get_stats = function () {
+            return stats
+        };
+
+        var stats = {
+            sets: 0, gets: 0, releases: 0, selects : 0
+        };
+
+        return { 
+            set: set, 
+            get: get, 
+            select: select, 
+            toString: toString, 
             debug: debug,
             get_stats: get_stats
         }
@@ -917,6 +876,7 @@
     exports.create_bmp = create_bmp;
     exports.create_multistore = create_multistore;
     exports.create_mwc = create_mwc;
+    exports.create_naive_store = create_naive_store;
     exports.keygen = keygen;
     exports.keys = keys;
 

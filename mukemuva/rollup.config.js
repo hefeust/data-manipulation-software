@@ -12,7 +12,9 @@ const plugins = [
         transforms: {
             asyncAwait: false,
             generator: false,
-            forOf: false
+            forOf: false,
+            dangerousForOf: false    
+
         },
         objectAssign: 'Object.assign    '
     }),
