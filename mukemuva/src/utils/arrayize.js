@@ -8,7 +8,7 @@ export const arrayize = (value) => {
         return value.split(',')
     }
 
-    if(value.length) {
+    if(value.length >= 0) {
         return value
     }
 

@@ -23,6 +23,8 @@ export const lists_intersect = (lists) => {
            results.push(key)
         }
     })
+
+//    console.log(lists.map((list) => list.length).join(', '))
         
     return results
 }

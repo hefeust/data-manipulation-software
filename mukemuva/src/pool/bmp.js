@@ -13,7 +13,7 @@ const defaults = {
     },
     pool: {
         size: 100 * 1000,
-        thresold: 0.05,
+        thresold: 0.10,
         growth: 0.10
     }
 }

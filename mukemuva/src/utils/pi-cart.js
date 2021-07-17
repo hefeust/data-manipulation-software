@@ -1,9 +1,4 @@
 
-
-const f = (a, b) => [].concat(...a.map(d => b.map(e => [].concat(d, e))));
-
-const cartesian = (a, b, ...c) => (b ? cartesian(f(a, b), ...c) : a);
-
 const pi_cart = (array, ...others) => {
     const store = [array]
     let  index = 0
@@ -29,5 +24,14 @@ const pi_cart = (array, ...others) => {
     return store[index]
 }
 
+const a = [0, 1, 2, 3]
+const b = 'a,b,c'.split(',')
+const c = [false, true]
+const d = 'x,y,z'.split(',')
 
-export const cartesian_product = pi_cart
+const pic = pi_cart(a, b, c, d)
+
+console.log('\n**** results ****')
+console.log(pic)
+console.log(pic.length)
+
