@@ -6,7 +6,7 @@ import { cartesian_product } from '../utils/cartesian-product.js'
 export const duck_lookup = (context) => {
     
     // grab ducks tooling from context
-    const { ducks } = context.tooling
+    const { ducks, stats } = context.tooling
 
     // role blocks lookup
     const roles  = new Map()
@@ -51,20 +51,11 @@ export const duck_lookup = (context) => {
         const promises = roles_names.map(async (role_name) => {
             const role = get_role(role_name)
             const part_value = bag[role_name]
-            const entries = role.lookup.get(role_name) || []
-            let found = false
 
             if(false === (role_name in bag)) 
                 throw new Error('lookup.install_parts: user bag KO for role_name= ' + role_name)
 
-            for(const part of entries) {
-                if(part.fellow === role.uid) {
-                    // console.log({ found})
-                    found = true
-                }
-            }
-
-            if (!found) {
+            if (false === role.lookup.has(part_value)) {
                 const part = await ducks.create({
                     ducktype: ducktypes.PART,
                     fellow: role.uid,
@@ -73,13 +64,9 @@ export const duck_lookup = (context) => {
                 })
 
                 role.related.push(part.uid)
-                role.counter++
-                entries.push(part)    
-
                 role.lookup.set(part_value, part.uid)
+                role.counter++
             }
-            
-//            parts.set(part_value, entries)
 
             return part_value
         })
@@ -89,80 +76,90 @@ export const duck_lookup = (context) => {
 
     const collect_records = async function* (filters) {
         const roles_names = Array.from(roles.keys())
-        const marked = new Map()
-        let extract_idx = 0
-//        const collected = new Map()       
+//        const marked = new Map()
+        const arrays = []
 
-//            console.log('**** collect_records ****')
+        // an attempt to boost partition finding        
+        const cache = new Map()
+        
+        collect_idx++
 
         for( const role_name of roles_names) {
-                const role = get_role(role_name)
-                const filter = filters[filter]
-                const by_role = marked.get(role_name) || []
-                const pvs = Array.from(role.lookup.keys())
-                let filtered = []
-                
-                if (role.lookup.has(filter)) {
-                    filtered = [role.lookup.get(filter)]
-                } else if (typeof filter === 'function') {
-                    filtered = pvs.filter((pv) => filter(pv))
-                } else if (filter === '*') {        
-                    filtered = pvs
-                }
-                
-                console.log({ filtered })
+            const role = get_role(role_name)
+            const filter = filters[role_name]
+//            const by_role = marked.get(role_name) || []
+            const pvs = Array.from(role.lookup.keys())
+            const hits = []
+            let filtered = []
 
-                for (const part_value of filtered) {
-                    by_role.push(part_value)
-                }
+            if (role.lookup.has(filter)) {
+                filtered = [role.lookup.get(filter)]
+            } else if (typeof filter === 'function') {
+                filtered = pvs.filter((pv) => filter(pv))
+            } else if (filter === '*') {        
+                filtered = pvs
+            } 
 
-                marked.set(role_name, by_role)
+//            console.log(filtered)
+
+//            marked.set(role_name, filtered)
+            for (const part_uid of filtered) {
+//                const part_uid = role.lookup.get(part_value)
+
+                hits.push(part_uid)
+            }
+
+            arrays.push(hits)
         }
 
-        const arrays = roles_names.map((role_name) => {
-            const entries = marked.get(role_name)
+//        for (const role_name of roles_names) {
+//            arrays.push([marked.get(role_name)])
+//        }
 
-            return entries
-        }).reduce((acc, val) => acc.concat([val]), [])
-
-        console.log('marked', marked)
-        console.log('arrays', arrays)
+//        console.log(arrays)
 
         const cart_prod = cartesian_product(...arrays)
-
-        console.log('CARTESIAN PRODUCT', cart_prod)
 
         for(const cp of cart_prod) {
             const results = []
 
             for(const uid of cp) {
-                const part = ducks.hydrate({
-                    uid,
-                    ducktype: ducktypes.PART
-                })
+                let part
 
-                results.pusg(part)
+                if(cache.has(uid)) {
+                    part = cache.get(uid)
+                } else {
+                    part = await ducks.hydrate({
+                        uid,
+                        ducktype: ducktypes.PART
+                    })
+                    
+                    cache.set(part.uid, part)
+                }
+
+                // console.log(////pcache.size)
+
+                results.push(part)
             }
 
-            yield result
+            yield results
         }
     }
 
     const install_item = async (bag, with_data) => {
         const records = await collect_records(bag)
-        let record_idx = 0
+        let record_counter = 0
 
         for await (const record of records) {
-            record_idx++
+//            const record = await Promise.all(promises)
 
             const lists = []
 
             for(const part of record) {
-                lists.push(part.related)
+                lists.push( part.related)
             }
 
             const isect = lists_intersect(lists)
-
 
             for (const uid of isect) {
                 const item = await ducks.hydrate({ 
@@ -172,12 +169,10 @@ export const duck_lookup = (context) => {
                 })
 
                 item.payload.with_data = with_data
+                record_counter++
             }
 
-            console.log({ INSTALL_isect: isect.length })
-            console.log({ isect })
-
-            if(isect.length === 0) {
+            if (record_counter === 0) {
                 let index = 0
                 let item = null
 
@@ -196,25 +191,17 @@ export const duck_lookup = (context) => {
                     part.counter++
                     index++
                 }
-
-
-//                console.log(record.map(part => ducktypes.trace(part)))
             }
         }
-
-        //console.log({ record_idx })
-//            console.log({ record_idx })
-
-        return record_idx
+ 
+        return record_counter
     }
 
     const select_items = async function* (filters) {
         const records = await collect_records(filters)
 
-        for await (const record of records) {
-
-            console.log({ select_items: record.length})
-
+        for await (const promises of records) {
+            const record = await Promise.all(promises)
             const lists = []
             const bag = {}
             let with_data = '#KO!'
@@ -225,20 +212,11 @@ export const duck_lookup = (context) => {
                     ducktype: ducktypes.ROLE
                 })
 
-//                    console.log({ related: part.related.length})                    
-
                 bag[role.payload.role_name] = part.payload.part_value
                 lists.push(part.related)
-
-//                console.log(part.related.length) 
-           }
-
-            console.log({ lists })                    
+            }
 
             const isect = lists_intersect(lists)
-
-
-            console.log({ SELECT_ITEMS: isect.length })
 
             for (const uid of isect) {
                 const item = await ducks.hydrate({ 
@@ -246,12 +224,8 @@ export const duck_lookup = (context) => {
                     ducktype: ducktypes.ITEM
                 })
 
-//                console.log('select_item', item)
-
                 with_data = item.payload.with_data
             }
-
-            console.log({ bag })
 
             yield { bag, with_data } 
         }
@@ -265,3 +239,4 @@ export const duck_lookup = (context) => {
     }    
 
 }
+
