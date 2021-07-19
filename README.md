@@ -2,7 +2,7 @@
 # README 
 for "data-manipluation-software" users.
 
-## TOC
+## Table Of Content
 ### DEXM: Deux EX Machina finite state machine
 ### DOMULO: Virtual DOM patcher
 ### MUKEMUVA: MUlti-KEys MUltiple VAlues data storage
