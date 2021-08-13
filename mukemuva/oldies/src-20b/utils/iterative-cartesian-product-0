@@ -1,0 +1,55 @@
+// iterative cartesian product
+
+export const iterative_cartesian_product = (options = {}) => {
+    const arrays = []
+    let results = []
+    let counter = 0
+
+    const check_array = (any) => {
+        if (false === Array.isArray(any)) {
+            throw new Error('not an array !!!')
+        }
+    }
+
+    const prod_array = (some_array) => {
+        let temp = []
+
+        check_array(some_array)
+        
+        if (options.debug) arrays.push(some_array)
+
+        if(counter === 0) {
+            temp = some_array
+        } else if (counter === 1) {
+            results.map((value) => {
+                some_array.map((some_value) => {
+                   temp.push([value, some_value]) 
+                })
+            })
+        } else {
+////            console.log('iterapi', results)
+
+            results.map((arr) => {
+                some_array.map((some_value) => {
+                   temp.push(arr.concat(some_value)) 
+                })
+            })
+        }
+
+        results = temp
+        counter++
+    }
+
+    const api = { prod_array }
+
+    Object.defineProperty(api, 'results', {
+        get: () => results
+    })
+
+    Object.defineProperty(api, 'counter', {
+        get: () => counter
+    })
+
+    return api
+}
+
